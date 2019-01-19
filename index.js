@@ -1,25 +1,28 @@
 const ROOT = process.cwd();
 const mongoose = require('mongoose');
+const EventEmitter = require('events');
 const {Schema} = mongoose;
 const mongooseAI = require('mongoose-auto-increment');
 
-class MongoDB {
-    constructor(conf) {
+class MongoDB extends EventEmitter {
+    constructor(conf, confName) {
+        super();
         !conf.port && (conf.port = 27017);
         const uri = `mongodb://${conf.user?`${conf.user}:${conf.pass}@`:''}${conf.host}:${conf.port}/${conf.name}`;
         this.conn = mongoose.createConnection(uri, {
             useCreateIndex: true,
             useNewUrlParser: true
-        });
+        }, err => this.emit('connected', err));
         mongooseAI.initialize(this.conn);
+        this.confName = confName;
     }
 
     getModel (name) {
         if(name in this.conn.models) return this.conn.models[name];
         try {
-            var schemaRaw = {...require(`${ROOT}/models/mongo/${name}.js`)};
+            var schemaRaw = {...require(`${ROOT}/models/${this.confName}/${name}.js`)};
         } catch {
-            console.log('[MongoDB] Model `' + name + '` not found');
+            this.emit('no-model', name);
             return;
         }
 
