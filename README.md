@@ -21,10 +21,11 @@
 
 ## `config.json` template
 
-| Field           | Default   | Description       |
-|-----------------|-----------|-------------------|
-| `db.mongo.host` | Required  | Database hostname |
-| `db.mongo.name` | Required  | Database name     |
-| `db.mongo.port` | `27017`   | Database port     |
-| `db.mongo.user` | Optional  | Database username |
-| `db.mongo.pass` |           | and password      |
+| Field                | Default   | Description                  |
+|----------------------|-----------|------------------------------|
+| `db.mongo.host`      | Required  | Database hostname            |
+| `db.mongo.name`      | Required  | Database name                |
+| `db.mongo.port`      | `27017`   | Database port                |
+| `db.mongo.user`      | Optional  | Database username            |
+| `db.mongo.pass`      |           | and password                 |
+| `db.mongo.nonStrict` | `[]`      | List of models without shema |

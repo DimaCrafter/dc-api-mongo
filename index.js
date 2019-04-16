@@ -1,7 +1,8 @@
 const ROOT = process.cwd();
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 const EventEmitter = require('events');
-const {Schema} = mongoose;
+const config = require('dc-api-core/config');
 const mongooseAI = require('mongoose-auto-increment');
 
 class MongoDB extends EventEmitter {
@@ -19,11 +20,16 @@ class MongoDB extends EventEmitter {
 
     getModel (name) {
         if(name in this.conn.models) return this.conn.models[name];
-        try {
-            var schemaRaw = {...require(`${ROOT}/models/${this.confName}/${name}.js`)};
-        } catch {
-            this.emit('no-model', name);
-            return;
+        let schemaRaw;
+        if ((config.db[this.confName].nonStrict || []).indexOf(name) != -1) {
+            schemaRaw = { initOpts: { strict: false } };
+        } else {
+            try {
+                schemaRaw = {...require(`${ROOT}/models/${this.confName}/${name}.js`)};
+            } catch {
+                this.emit('no-model', name);
+                return;
+            }
         }
 
         let schemaData = {
@@ -45,7 +51,10 @@ class MongoDB extends EventEmitter {
         }
         delete schemaRaw.increment;
 
-        const schema = new Schema(schemaRaw);
+        schemaData.initOpts = schemaRaw.initOpts;
+        delete schemaRaw.initOpts;
+
+        const schema = new Schema(schemaRaw, schemaData.initOpts);
         // Parsing virtuals
         Object.keys(schemaData.virtuals).forEach(key => {
             schema.virtual(key)
