@@ -6,11 +6,14 @@ const config = require('dc-api-core/config');
 const mongooseAI = require('mongoose-auto-increment');
 
 class MongoDB extends EventEmitter {
-    constructor(conf, confName) {
+    constructor (conf, confName) {
         super();
-        !conf.port && (conf.port = 27017);
-        const uri = `mongodb://${conf.user?`${conf.user}:${conf.pass}@`:''}${conf.host}:${conf.port}/${conf.name}`;
-        this.conn = mongoose.createConnection(uri, {
+        if (!conf.uri) {
+            !conf.port && (conf.port = 27017);
+            conf.uri = `mongodb://${conf.user?`${conf.user}:${conf.pass}@`:''}${conf.host}:${conf.port}/${conf.name}`;
+        }
+        
+        this.conn = mongoose.createConnection(conf.uri, {
             useCreateIndex: true,
             useNewUrlParser: true
         }, err => this.emit('connected', err));
