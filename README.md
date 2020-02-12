@@ -30,3 +30,27 @@
 | `db.mongo.user`      | Optional      | Database username            |
 | `db.mongo.pass`      |               | and password                 |
 | `db.mongo.nonStrict` | `[]`          | List of models without shema |
+| `db.mongo.srv`       | `false`       | If `true` using SRV record   |
+| `db.mongo.*`         | Optional      | Query parameters in URI      |
+
+## Example configuration
+
+```json
+{
+    "db": {
+        "mongo.billing": {
+            "uri": " mongodb+srv://admin:admin@project-00000.provider.mongodb.net/billing?authSource=admin&retryWrites=true&w=majority"
+        },
+        "mongo.control-panel"
+            "host": "project-00000.provider.mongodb.net",
+            "user": "admin",
+            "pass": "admin",
+            "name": "control-panel",
+            "srv": true,
+            "authSource": "admin",
+            "retryWrites": true,
+            "w": "majority"
+        }
+    }
+}
+```

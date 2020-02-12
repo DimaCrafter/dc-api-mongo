@@ -5,16 +5,35 @@ const EventEmitter = require('events');
 const config = require('dc-api-core/config');
 const mongooseAI = require('mongoose-auto-increment');
 
+const uriExclude = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
 class MongoDB extends EventEmitter {
     constructor (conf, confName) {
         super();
         if (!conf.uri) {
-            !conf.port && (conf.port = 27017);
-            conf.uri = `mongodb://${conf.user?`${conf.user}:${conf.pass}@`:''}${conf.host}:${conf.port}/${conf.name}`;
+            if (conf.srv && !conf.port) conf.port = 27017;
+            const uri = [
+                'mongodb',
+                conf.user ? (conf.user + ':' + conf.pass + '@') : '',
+                conf.host,
+                !conf.srv ? (':' + conf.port) : '',
+                '/' + conf.name,
+                '?'
+            ];
+
+            if (conf.srv) uri[0] += '+srv';
+            for (const key in conf) {
+                if (~uriExclude.indexOf(key)) continue;
+                uri[5] += key + '=' + conf[key] + '&';
+            }
+
+            uri[0] += '://';
+            uri[5] = uri[5].slice(0, -1);
+            conf.uri = uri.join('');
         }
-        
+
         this.conn = mongoose.createConnection(conf.uri, {
             useCreateIndex: true,
+            useUnifiedTopology: true,
             useNewUrlParser: true
         }, err => this.emit('connected', err));
         mongooseAI.initialize(this.conn);
@@ -24,7 +43,7 @@ class MongoDB extends EventEmitter {
     getModel (name) {
         if(name in this.conn.models) return this.conn.models[name];
         let schemaRaw;
-        if ((config.db[this.confName].nonStrict || []).indexOf(name) != -1) {
+        if (config.db[this.confName] && (config.db[this.confName].nonStrict || []).indexOf(name) != -1) {
             schemaRaw = { initOpts: { strict: false } };
         } else {
             try {
