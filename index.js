@@ -41,7 +41,7 @@ class MongoDB extends EventEmitter {
     }
 
     getModel (name) {
-        if(name in this.conn.models) return this.conn.models[name];
+        if (name in this.conn.models) return this.conn.models[name];
         let schemaRaw;
         if (config.db[this.confName] && (config.db[this.confName].nonStrict || []).indexOf(name) != -1) {
             schemaRaw = { initOpts: { strict: false } };
@@ -60,7 +60,7 @@ class MongoDB extends EventEmitter {
 
         delete schemaRaw.virtuals;
         // Parsing auto-increment options
-        switch(typeof schemaRaw.increment) {
+        switch (typeof schemaRaw.increment) {
             case 'string':
                 schemaData.increment = {
                     model: name,
@@ -86,6 +86,15 @@ class MongoDB extends EventEmitter {
         // Enabling auto-increment plugin if necessary
         schemaData.increment && schema.plugin(mongooseAI.plugin, schemaData.increment);
         return this.conn.model(name, schema);
+    }
+
+    drop (cb) {
+        const drop = () => this.conn.db.dropDatabase(cb);
+        if (this.conn.readyState == this.conn.states.connecting) {
+            this.conn.once('connected', drop);
+        } else {
+            drop();
+        }
     }
 }
 
