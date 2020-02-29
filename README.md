@@ -71,4 +71,5 @@ module.exports = {
 };
 ```
 Other samples you can find in [Mongoose Docs](https://mongoosejs.com/docs/guide.html).
+
 3) Done!
