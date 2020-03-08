@@ -10,12 +10,14 @@
 
 ---
 
-## Easy installation
+## Installation
 
 1) Install package - `npm i dc-api-mongo --save` or `yarn add dc-api-mongo`
 2) Add `dc-api-mongo` to `plugins` array in `config.json`
 3) Fill `db` field in `config.json` by template
-4) Done!
+4) Create directory `models` in back-end root
+5) Create directory `mongo` in `models`
+6) Done!
 
 ---
 
@@ -54,3 +56,20 @@
     }
 }
 ```
+
+## Creating model
+
+1) Create file `modelname.js` in directory `models/mongo`
+2) Fill model, example:
+```js
+module.exports = {
+    field: { type: String, required: true },
+    somefield: {
+        somesomesomefield: { type: String, required: true },
+    },
+    somesomefield: { type: Number, default: Date.now() + 1000 * 60 },
+};
+```
+Other samples you can find in [Mongoose Docs](https://mongoosejs.com/docs/guide.html).
+
+3) Done!
