@@ -9,9 +9,10 @@ const uriExclude = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
 class MongoDB extends EventEmitter {
     constructor (conf, confName) {
         super();
-        if (!conf.uri) {
+        let uri = conf.uri;
+        if (!uri) {
             if (conf.srv && !conf.port) conf.port = 27017;
-            const uri = [
+            uri = [
                 'mongodb',
                 conf.user ? (conf.user + ':' + conf.pass + '@') : '',
                 conf.host,
@@ -28,10 +29,10 @@ class MongoDB extends EventEmitter {
 
             uri[0] += '://';
             uri[5] = uri[5].slice(0, -1);
-            conf.uri = uri.join('');
+            uri = uri.join('');
         }
 
-        this.conn = mongoose.createConnection(conf.uri, {
+        this.conn = mongoose.createConnection(uri, {
             useCreateIndex: true,
             useUnifiedTopology: true,
             useNewUrlParser: true
