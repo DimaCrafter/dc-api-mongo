@@ -99,4 +99,4 @@ class MongoDB extends EventEmitter {
     }
 }
 
-module.exports = core => core.register('db', MongoDB, 'mongo');
+module.exports = core => core.db(MongoDB, 'mongo');
