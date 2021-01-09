@@ -1,102 +1,129 @@
-const ROOT = process.cwd();
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 const EventEmitter = require('events');
-const config = require('dc-api-core/config');
-const mongooseAI = require('mongoose-auto-increment');
+const autoIncrement = require('./auto-increment');
 
 const uriExclude = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
 class MongoDB extends EventEmitter {
-    constructor (conf, confName) {
+    constructor (config) {
         super();
-        let uri = conf.uri;
+        let uri = config.uri;
         if (!uri) {
-            if (conf.srv && !conf.port) conf.port = 27017;
+            if (config.srv && !config.port) config.port = 27017;
             uri = [
                 'mongodb',
-                conf.user ? (conf.user + ':' + conf.pass + '@') : '',
-                conf.host,
-                !conf.srv ? (':' + conf.port) : '',
-                '/' + conf.name,
+                config.user ? (config.user + ':' + config.pass + '@') : '',
+                config.host,
+                !config.srv && config.port ? (':' + config.port) : '',
+                '/' + config.name,
                 '?'
             ];
 
-            if (conf.srv) uri[0] += '+srv';
-            for (const key in conf) {
+            if (config.srv) uri[0] += '+srv';
+            for (const key in config) {
                 if (~uriExclude.indexOf(key)) continue;
-                uri[5] += key + '=' + conf[key] + '&';
+                uri[5] += key + '=' + config[key] + '&';
             }
 
             uri[0] += '://';
+            // Remove ending ampersand from query string
             uri[5] = uri[5].slice(0, -1);
             uri = uri.join('');
         }
 
-        this.conn = mongoose.createConnection(uri, {
+        this.config = config;
+        /** @type {import('mongoose').Connection} */
+        this.connection = mongoose.createConnection(uri, {
             useCreateIndex: true,
             useUnifiedTopology: true,
             useNewUrlParser: true
-        }, err => this.emit('connected', err));
-        mongooseAI.initialize(this.conn);
-        this.confName = confName;
+        }, async err => {
+            if (!err) {
+                await autoIncrement.init(this.connection);
+            }
+
+            this.emit('connected', err);
+        });
     }
 
-    getModel (name) {
-        if (name in this.conn.models) return this.conn.models[name];
+    getModel (basePath, modelName) {
+        if (modelName in this.connection.models) {
+            return this.connection.models[modelName];
+        }
+
         let schemaRaw;
-        if (config.db[this.confName] && (config.db[this.confName].nonStrict || []).indexOf(name) != -1) {
-            schemaRaw = { initOpts: { strict: false } };
+        if (this.config.nonStrict && ~this.config.nonStrict.indexOf(modelName)) {
+            schemaRaw = { $options: { strict: false } };
         } else {
             try {
-                schemaRaw = {...require(`${ROOT}/models/${this.confName}/${name}.js`)};
-            } catch {
-                this.emit('no-model', name);
-                return;
+                schemaRaw = {...require(`${basePath}/${modelName}.js`)};
+            } catch (err) {
+                throw err;
             }
         }
 
         let schemaData = {
-            virtuals: schemaRaw.virtuals || {}
+            virtuals: schemaRaw.$virtuals || {}
         };
+        delete schemaRaw.$virtuals;
 
-        delete schemaRaw.virtuals;
         // Parsing auto-increment options
-        switch (typeof schemaRaw.increment) {
-            case 'string':
+        if (schemaRaw.$increment) {
+            if (typeof schemaRaw.$increment == 'string') {
                 schemaData.increment = {
-                    model: name,
-                    field: schemaRaw.increment
+                    field: schemaRaw.$increment,
+                    start: 1
                 };
-                break;
-            case 'object':
-                schemaData.increment = {...schemaRaw.increment, ...{model: name}};
-                break;
+            } else {
+                schemaData.increment = schemaRaw.$increment;
+                schemaData.increment.start = schemaData.increment.start || 1;
+            }
+
+            schemaRaw[schemaData.increment.field] = { type: Number, required: false };
+            delete schemaRaw.$increment;
         }
-        delete schemaRaw.increment;
 
-        schemaData.initOpts = schemaRaw.initOpts;
-        delete schemaRaw.initOpts;
+        schemaData.options = schemaRaw.$options;
+        delete schemaRaw.$options;
 
-        const schema = new Schema(schemaRaw, schemaData.initOpts);
-        // Parsing virtuals
-        Object.keys(schemaData.virtuals).forEach(key => {
+        const schema = new Schema(schemaRaw, schemaData.options);
+        // Applying virtuals
+        for (const key in schemaData.virtuals) {
             schema.virtual(key)
                 .get(schemaData.virtuals[key].get)
                 .set(schemaData.virtuals[key].set);
-        });
+        }
+
         // Enabling auto-increment plugin if necessary
-        schemaData.increment && schema.plugin(mongooseAI.plugin, schemaData.increment);
-        return this.conn.model(name, schema);
+        if (schemaData.increment) {
+            autoIncrement.apply(schema, schemaData.increment);
+        }
+
+        return this.connection.model(modelName, schema);
     }
 
     drop (cb) {
-        const drop = () => this.conn.db.dropDatabase(cb);
-        if (this.conn.readyState == this.conn.states.connecting) {
-            this.conn.once('connected', drop);
+        const drop = () => this.connection.db.dropDatabase(cb);
+        if (this.connection.readyState == this.connection.states.connecting) {
+            this.connection.once('connected', drop);
         } else {
             drop();
         }
     }
+
+    // Utils
+    ObjectIdFromTime (timestamp) {
+        if (typeof timestamp == 'string') timestamp = new Date(timestamp).getTime();
+        else if (timestamp instanceof Date) timestamp = timestamp.getTime();
+
+        return (~~(timestamp / 1000)).toString(16) + '0000000000000000';
+    }
 }
 
 module.exports = core => core.db(MongoDB, 'mongo');
+module.exports.ObjectIdFromTime = timestamp => {
+    if (typeof timestamp == 'string') timestamp = new Date(timestamp).getTime();
+    else if (timestamp instanceof Date) timestamp = timestamp.getTime();
+
+    return (~~(timestamp / 1000)).toString(16) + '0000000000000000';
+};
