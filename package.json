@@ -1,6 +1,6 @@
 {
 	"name": "dc-api-mongo",
-	"version": "0.1.4-1",
+	"version": "0.2.0",
 	"description": "Mongoose based MongoDB driver for dc-api-core",
 
 	"author": "DimaCrafter",
@@ -10,7 +10,7 @@
 
 	"license": "MIT",
 	"dependencies": {
-		"dc-api-core": "^0.2.5",
-		"mongoose": "^5.11.10"
+		"dc-api-core": "^0.3.0-pre3",
+		"mongoose": "^5.13.7"
 	}
 }

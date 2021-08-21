@@ -1,16 +1,19 @@
-const mongoose = require('mongoose');
-const { Schema } = mongoose;
-const EventEmitter = require('events');
-const autoIncrement = require('./auto-increment');
+// @ts-nocheck
+// I disabled TypeScript here because mongoose typings and documentation says different things
 
-const uriExclude = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
-class MongoDB extends EventEmitter {
+const mongoose = require('mongoose');
+const { DatabaseDriver, registerDriver } = require('dc-api-core/db');
+const AutoIncrement = require('./auto-increment');
+const { parseModel } = require('./model');
+
+const URI_EXCLUDE = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
+class MongoDB extends DatabaseDriver {
     constructor (config) {
         super();
-        let uri = config.uri;
-        if (!uri) {
+
+        if (!config.uri) {
             if (config.srv && !config.port) config.port = 27017;
-            uri = [
+            const uri = [
                 'mongodb',
                 config.user ? (config.user + ':' + config.pass + '@') : '',
                 config.host,
@@ -21,98 +24,80 @@ class MongoDB extends EventEmitter {
 
             if (config.srv) uri[0] += '+srv';
             for (const key in config) {
-                if (~uriExclude.indexOf(key)) continue;
+                if (~URI_EXCLUDE.indexOf(key)) continue;
                 uri[5] += key + '=' + config[key] + '&';
             }
 
             uri[0] += '://';
             // Remove ending ampersand from query string
             uri[5] = uri[5].slice(0, -1);
-            uri = uri.join('');
+
+            config.uri = uri.join('');
         }
 
         this.config = config;
-        /** @type {import('mongoose').Connection} */
-        this.connection = mongoose.createConnection(uri, {
-            useCreateIndex: true,
-            useUnifiedTopology: true,
-            useNewUrlParser: true
-        }, async err => {
-            if (!err) {
-                await autoIncrement.init(this.connection);
-            }
+    }
 
-            this.emit('connected', err);
+    connect () {
+        return new Promise((resolve, reject) => {
+            /** @type {import('mongoose').Connection} */
+            this.connection = mongoose.createConnection(this.config.uri, {
+                useCreateIndex: true,
+                useUnifiedTopology: true,
+                useNewUrlParser: true
+            }, error => {
+                if (error) reject(error);
+                else {
+                    this.connection.once('disconnected', () => this.emit('disconnected'));
+                    resolve(AutoIncrement.init(this.connection));
+                }
+            });
         });
     }
 
-    getModel (basePath, modelName) {
-        if (modelName in this.connection.models) {
-            return this.connection.models[modelName];
+    /**
+     * @param {string} basePath
+     * @param {string} name
+     * @returns {mongoose.Model<mongoose.Document>}
+     */
+    getModel (basePath, name) {
+        if (name in this.connection.models) {
+            return this.connection.models[name];
         }
 
         let schemaRaw;
-        if (this.config.nonStrict && ~this.config.nonStrict.indexOf(modelName)) {
+        if (this.config.nonStrict && ~this.config.nonStrict.indexOf(name)) {
             schemaRaw = { $options: { strict: false } };
         } else {
             try {
-                schemaRaw = {...require(`${basePath}/${modelName}.js`)};
+                schemaRaw = {...require(`${basePath}/${name}.js`)};
             } catch (err) {
                 throw err;
             }
         }
 
-        let schemaData = {
-            virtuals: schemaRaw.$virtuals || {}
-        };
-        delete schemaRaw.$virtuals;
-
-        // Parsing auto-increment options
-        if (schemaRaw.$increment) {
-            if (typeof schemaRaw.$increment == 'string') {
-                schemaData.increment = {
-                    field: schemaRaw.$increment,
-                    start: 1
-                };
-            } else {
-                schemaData.increment = schemaRaw.$increment;
-                schemaData.increment.start = schemaData.increment.start || 1;
-            }
-
-            schemaRaw[schemaData.increment.field] = { type: Number, required: false };
-            delete schemaRaw.$increment;
-        }
-
-        schemaData.options = schemaRaw.$options;
-        delete schemaRaw.$options;
-
-        const schema = new Schema(schemaRaw, schemaData.options);
-        // Applying virtuals
-        for (const key in schemaData.virtuals) {
-            schema.virtual(key)
-                .get(schemaData.virtuals[key].get)
-                .set(schemaData.virtuals[key].set);
-        }
-
-        // Enabling auto-increment plugin if necessary
-        if (schemaData.increment) {
-            autoIncrement.apply(schema, schemaData.increment);
-        }
-
-        return this.connection.model(modelName, schema);
+        const schema = parseModel(schemaRaw);
+        return this.connection.model(name, schema);
     }
 
-    drop (cb) {
-        const drop = () => this.connection.db.dropDatabase(cb);
+    /** Drop connected database */
+    async drop () {
+        await this.getConnectionAwaiter();
+        return await this.connection.db.dropDatabase();
+    }
+
+    getConnectionAwaiter () {
         if (this.connection.readyState == this.connection.states.connecting) {
-            this.connection.once('connected', drop);
-        } else {
-            drop();
+            return new Promise(resolve => this.connection.once('connected', resolve));
         }
     }
 
-    // Utils
-    ObjectIdFromTime (timestamp) {
+    // * Utils
+    /**
+     * Convert given Unix Timestamp to BSON ObjectId
+     * @param {number | string | Date} timestamp
+     */
+    static ObjectIdFromTime (timestamp) {
         if (typeof timestamp == 'string') timestamp = new Date(timestamp).getTime();
         else if (timestamp instanceof Date) timestamp = timestamp.getTime();
 
@@ -120,10 +105,4 @@ class MongoDB extends EventEmitter {
     }
 }
 
-module.exports = core => core.db(MongoDB, 'mongo');
-module.exports.ObjectIdFromTime = timestamp => {
-    if (typeof timestamp == 'string') timestamp = new Date(timestamp).getTime();
-    else if (timestamp instanceof Date) timestamp = timestamp.getTime();
-
-    return (~~(timestamp / 1000)).toString(16) + '0000000000000000';
-};
+module.exports = registerDriver(MongoDB, 'mongo');
