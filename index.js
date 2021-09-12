@@ -101,7 +101,7 @@ class MongoDB extends DatabaseDriver {
         if (typeof timestamp == 'string') timestamp = new Date(timestamp).getTime();
         else if (timestamp instanceof Date) timestamp = timestamp.getTime();
 
-        return (~~(timestamp / 1000)).toString(16) + '0000000000000000';
+        return new mongoose.Types.ObjectId((~~(timestamp / 1000)).toString(16) + '0000000000000000');
     }
 }
 
