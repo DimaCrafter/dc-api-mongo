@@ -41,11 +41,7 @@ class MongoDB extends DatabaseDriver {
     connect () {
         return new Promise((resolve, reject) => {
             /** @type {import('mongoose').Connection} */
-            this.connection = mongoose.createConnection(this.config.uri, {
-                useCreateIndex: true,
-                useUnifiedTopology: true,
-                useNewUrlParser: true
-            }, error => {
+            this.connection = mongoose.createConnection(this.config.uri, error => {
                 if (error) reject(error);
                 else {
                     this.connection.once('disconnected', () => this.emit('disconnected'));
@@ -56,28 +52,13 @@ class MongoDB extends DatabaseDriver {
     }
 
     /**
-     * @param {string} basePath
      * @param {string} name
+     * @param {any} schema
      * @returns {mongoose.Model<mongoose.Document>}
      */
-    getModel (basePath, name) {
-        if (name in this.connection.models) {
-            return this.connection.models[name];
-        }
-
-        let schemaRaw;
-        if (this.config.nonStrict && ~this.config.nonStrict.indexOf(name)) {
-            schemaRaw = { $options: { strict: false } };
-        } else {
-            try {
-                schemaRaw = {...require(`${basePath}/${name}.js`)};
-            } catch (err) {
-                throw err;
-            }
-        }
-
-        const schema = parseModel(schemaRaw);
-        return this.connection.model(name, schema);
+    getModel (name, schema) {
+        // todo: non strict support
+        return this.connection.model(name, parseModel(schema));
     }
 
     /** Drop connected database */
