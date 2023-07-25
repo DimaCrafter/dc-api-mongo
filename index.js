@@ -2,7 +2,10 @@
 // I disabled TypeScript here because mongoose typings and documentation says different things
 
 const mongoose = require('mongoose');
+const { ObjectId } = require('mongodb');
 const { DatabaseDriver, registerDriver } = require('dc-api-core/db');
+const { registerStore } = require('dc-api-core/session');
+
 const AutoIncrement = require('./auto-increment');
 const { parseModel } = require('./model');
 
@@ -86,4 +89,39 @@ class MongoDB extends DatabaseDriver {
     }
 }
 
-module.exports = registerDriver(MongoDB, 'mongo');
+const driver = registerDriver(MongoDB, 'mongo');
+class MongoSessionStore {
+    constructor (name) {
+        const db = driver.connect(name);
+        this.collection = db.connection.collection('sessions');
+    }
+
+    get (_id) {
+        _id = new ObjectId(_id);
+        return this.collection.findOne({ _id });
+    }
+
+    async create (expires) {
+        const document = { data: {}, expires };
+        const result = await this.collection.insertOne(document);
+
+        document._id = result.insertedId;
+        return document;
+    }
+
+    update (_id, data) {
+        return this.collection.updateOne({ _id }, { $set: { data } });
+    }
+
+    delete (_id) {
+        return this.collection.deleteOne({ _id });
+    }
+
+    destroyExpired (timestamp) {
+        return this.collection.deleteMany({ expires: { $lte: timestamp } });
+    }
+}
+
+registerStore(MongoSessionStore, 'mongo');
+
+module.exports = driver;

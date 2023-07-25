@@ -1,6 +1,8 @@
-# MongoDB driver for `dc-api-core`
+# Mongoose based MongoDB driver for dc-api-core
 
 [![NPM](https://nodei.co/npm/dc-api-mongo.png)](https://npmjs.com/package/dc-api-mongo)
+
+Provides `mongo` database driver and session store.
 
 ## Dependencies
 
