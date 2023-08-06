@@ -1,11 +1,11 @@
 const { Schema } = require('mongoose');
-const AutoIncrement = require('./auto-increment');
+const { applyAutoIncrement } = require('./auto-increment');
 
 /**
  * Convert dc-api-mongo model to mongoose schema
  * @param {object} raw Model description object
  */
-module.exports.parseModel = raw => {
+module.exports.buildModel = (name, raw) => {
 	let parsed = {
 		virtuals: raw.$virtuals || {}
 	};
@@ -20,7 +20,7 @@ module.exports.parseModel = raw => {
 			};
 		} else {
 			parsed.increment = raw.$increment;
-			parsed.increment.start = parsed.increment.start || 1;
+			parsed.increment.start ||= 1;
 		}
 
 		raw[parsed.increment.field] = { type: Number, required: false };
@@ -40,7 +40,7 @@ module.exports.parseModel = raw => {
 
 	// Enabling auto-increment plugin if necessary
 	if (parsed.increment) {
-		AutoIncrement.apply(schema, parsed.increment);
+		applyAutoIncrement(schema, name, parsed.increment);
 	}
 
 	return schema;

@@ -6,8 +6,7 @@ const { ObjectId } = require('mongodb');
 const { DatabaseDriver, registerDriver } = require('dc-api-core/db');
 const { registerStore } = require('dc-api-core/session');
 
-const AutoIncrement = require('./auto-increment');
-const { parseModel } = require('./model');
+const { buildModel } = require('./model');
 
 const URI_EXCLUDE = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
 class MongoDB extends DatabaseDriver {
@@ -41,17 +40,11 @@ class MongoDB extends DatabaseDriver {
         this.config = config;
     }
 
-    connect () {
-        return new Promise((resolve, reject) => {
-            /** @type {import('mongoose').Connection} */
-            this.connection = mongoose.createConnection(this.config.uri, error => {
-                if (error) reject(error);
-                else {
-                    this.connection.once('disconnected', () => this.emit('disconnected'));
-                    resolve(AutoIncrement.init(this.connection));
-                }
-            });
-        });
+    async connect () {
+        this.connection = mongoose.createConnection(this.config.uri);
+        await this.connection.asPromise();
+
+        this.connection.once('disconnected', () => this.emit('disconnected'));
     }
 
     /**
@@ -61,7 +54,7 @@ class MongoDB extends DatabaseDriver {
      */
     getModel (name, schema) {
         // todo: non strict support
-        return this.connection.model(name, parseModel(schema));
+        return this.connection.model(name, buildModel(name, schema));
     }
 
     /** Drop connected database */
