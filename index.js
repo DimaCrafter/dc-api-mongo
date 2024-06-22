@@ -7,6 +7,7 @@ const { DatabaseDriver, registerDriver } = require('dc-api-core/db');
 const { registerStore } = require('dc-api-core/session');
 
 const { buildModel } = require('./model');
+const { provideModelImports, provideSchemaType } = require('./typescript/model-typings');
 
 const URI_EXCLUDE = ['host', 'port', 'user', 'pass', 'name', 'srv', 'uri'];
 class MongoDB extends DatabaseDriver {
@@ -55,6 +56,14 @@ class MongoDB extends DatabaseDriver {
     getModel (name, schema) {
         // todo: non strict support
         return this.connection.model(name, buildModel(name, schema));
+    }
+
+    getModelInterface (name, model) {
+        return provideSchemaType(name, model.schema.obj);
+    }
+
+    getModelImports () {
+        return provideModelImports();
     }
 
     /** Drop connected database */

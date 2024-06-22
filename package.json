@@ -1,6 +1,6 @@
 {
 	"name": "dc-api-mongo",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "Mongoose based MongoDB driver for dc-api-core",
 
 	"author": "DimaCrafter",
