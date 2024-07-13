@@ -39,7 +39,7 @@ exports.provideSchemaType = (schemaName, schema) => {
             }
 
             let tsType;
-            if (value.type === Object && !value.enum) {
+            if (typeof value.type === 'object' && value.type !== Object) {
                 tsType = `{\n${processProperties(value, indent + '\t')}${indent}}'`;
             } else if (value.type === Array && !value.enum) {
                 tsType = 'any[]';
