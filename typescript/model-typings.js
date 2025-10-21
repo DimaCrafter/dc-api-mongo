@@ -35,7 +35,7 @@ exports.provideSchemaType = (schemaName, schema) => {
             const optional = (value.required || value.default !== undefined) ? '' : '?';
 
             if ('default' in value) {
-                result += `${indent}/** Default: ${JSON.stringify(value.default).replace(/\"/g, "'")} */\n`;
+                result += `${indent}/** Default: ${(JSON.stringify(value.default) || '{}').replace(/\"/g, "'")} */\n`;
             }
 
             let tsType;
