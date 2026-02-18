@@ -10,9 +10,9 @@
 
 	"license": "MIT",
 	"dependencies": {
-		"mongoose": "^7.0.4 || ^0.4.0"
+		"mongoose": "^7.0.4"
 	},
 	"peerDependencies": {
-		"dc-api-core": "^0.3.4-3"
+		"dc-api-core": "^0.3.4-3 || ^0.4.0"
 	}
 }
